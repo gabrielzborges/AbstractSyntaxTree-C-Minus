@@ -2,6 +2,11 @@
 #define AST_H
 
 typedef enum {
+    FUNC_LIST_NODE,
+    FUNC_DECL_NODE,
+    FUNC_HEADER_NODE,
+    FUNC_NAME_NODE,
+    FUNC_BODY_NODE,
     STMT_SEQ_NODE,
     IF_NODE,
     REPEAT_NODE,
@@ -15,7 +20,8 @@ typedef enum {
     LT_NODE,
     EQ_NODE,
     NUM_NODE,
-    ID_NODE
+    ID_NODE,
+    EMPTY
 } NodeKind;
 
 struct node; // Opaque structure to ensure encapsulation.

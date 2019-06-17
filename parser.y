@@ -11,6 +11,7 @@
   #include <stdlib.h>
   #include <string.h>
   #include "parser.h"
+  #include "ast.h"
   #include "tables.h"
   extern int yylineno; //sera utilizado na funcao yyerror
   extern char *yytext;
@@ -38,6 +39,8 @@
   AST* ast;
 %}
 
+%define api.value.type {AST*} //type of variable yylval
+
 //tokens
 %token ELSE IF INPUT INT OUTPUT RETURN VOID WHILE WRITE
 %token SEMI COMMA LPAREN RPAREN LBRACK RBRACK LBRACE RBRACE
@@ -52,33 +55,33 @@
 %left TIMES OVER
 
 %%
-program: func_decl_list;
+program: func_decl_list { ast = $1 };
 
 func_decl_list: 
-  func_decl_list func_decl {actual_scope++;} 
-| func_decl {actual_scope++;}
+  func_decl_list func_decl {actual_scope++; add_child($1, $2); $$ = $1; } 
+| func_decl {actual_scope++; $$ = new_subtree(FUNC_LIST_NODE, 1, $1); }
 ;
 
 func_decl: 
-  func_header func_body
+  func_header func_body { $$ = new_subtree(FUNC_DECL_NODE, 2, $1, $2); }
 ;
 
 func_header: 
-  ret_type ID {strcpy(func_name, yytext);} LPAREN params RPAREN {func_new(func_name, actual_arity);}
+  ret_type ID {strcpy(func_name, yytext);} LPAREN params RPAREN {func_new(func_name, actual_arity); $2 = new_node(FUNC_NAME_NODE, lookup_func(func_tb, func_name)); $$ = new_subtree(FUNC_HEADER_NODE, 2, $2, $5);}
 ; //func_name receive the name of the function because the params are IDs and will override the id_name_copy
 
 func_body: 
-  LBRACE opt_var_decl opt_stmt_list RBRACE
+  LBRACE opt_var_decl opt_stmt_list RBRACE {$$ = new_subtree(FUNC_BODY_NODE, 2, $2, $3);}
 ;
 
 opt_var_decl: 
-  %empty 
-| var_decl_list
+  %empty { $$ = new_node(EMPTY, 0);}
+| var_decl_list { $$ = $1; }
 ;
 
 opt_stmt_list: 
-  %empty 
-| stmt_list
+  %empty { $$ = new_node(EMPTY, 0);}
+| stmt_list { $$ = $1; }
 ;
 
 ret_type: 
@@ -88,11 +91,11 @@ ret_type:
 
 params: 
   VOID
-| param_list
+| param_list { $$ = $1; }
 ;
 
 param_list: 
-  param_list COMMA param 
+  param_list COMMA param { add_child($1, $3); $$ = $1; }
 | param
 ;
 
