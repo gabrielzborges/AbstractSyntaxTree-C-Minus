@@ -75,12 +75,12 @@ func_body:
 ;
 
 opt_var_decl: 
-  %empty { $$ = new_node(EMPTY, 0);}
+  %empty { $$ = new_node(VAR_DECL_NODE, 0);}
 | var_decl_list { $$ = $1; }
 ;
 
 opt_stmt_list: 
-  %empty { $$ = new_node(EMPTY, 0);}
+  %empty //{ $$ = new_node(EMPTY, 0);}
 | stmt_list { $$ = $1; }
 ;
 
@@ -95,117 +95,117 @@ params:
 ;
 
 param_list: 
-  param_list COMMA param { add_child($1, $3); $$ = $1; }
-| param
+  param_list COMMA param { add_child($1, $3); $$ = new_subtree(PARAM_LIST_NODE, 1, $2); }
+| param { $$ = $1; }
 ;
 
 param: 
-  INT ID {actual_arity++; var_new(id_name_copy, 0, actual_scope);}
-| INT ID {actual_arity++; var_new(id_name_copy, -1, actual_scope);} LBRACK RBRACK
+  INT ID {actual_arity++; var_new(id_name_copy, 0, actual_scope); $2 = new_node(VAR_DECL_NODE, lookup_var(sym_tb, id_name_copy, actual_scope)); $$ = $2;}
+| INT ID {actual_arity++; var_new(id_name_copy, -1, actual_scope); $2 = new_node(VAR_DECL_NODE, lookup_var(sym_tb, id_name_copy, actual_scope)); $$ = $2;} LBRACK RBRACK
 ;
 
 var_decl_list: 
-  var_decl_list var_decl 
-| var_decl
+  var_decl_list var_decl { add_child($1, $2); $$ = new_subtree(VAR_LIST, 1, $1); }
+| var_decl { $$ = $1; }
 ;
 
 var_decl: 
-  INT ID {var_new(id_name_copy, 0, actual_scope);} SEMI 
+  INT ID {var_new(id_name_copy, 0, actual_scope); $2 = new_node(VAR_DECL_NODE, lookup_var(sym_tb, id_name_copy, actual_scope)); $$ = $2;} SEMI 
 | INT ID LBRACK NUM {var_new(id_name_copy, atoi(yytext), actual_scope);} RBRACK SEMI
 ;
 
 stmt_list: 
-  stmt_list stmt 
-| stmt
+  stmt_list stmt { add_child($1, $2); $$ = $1; }
+| stmt { $$ = $1; }
 ;
 
 stmt: 
-  assign_stmt 
-| if_stmt 
-| while_stmt 
-| return_stmt 
-| func_call SEMI
+  assign_stmt    { $$ = $1; }
+| if_stmt        { $$ = $1; }
+| while_stmt     { $$ = $1; }
+| return_stmt    { $$ = $1; }
+| func_call SEMI { $$ = $1; }
 ;
 
 assign_stmt: 
-  lval ASSIGN arith_expr SEMI
+  lval ASSIGN arith_expr SEMI { $$ = new_subtree(ASSIGN_NODE, 2, $1, $3); }
 ;
 
 lval: 
-  ID {var_verify(id_name_copy, actual_scope);} 
-| ID LBRACK NUM RBRACK 
-| ID LBRACK ID {var_verify(id_name_copy, actual_scope);} RBRACK
+  ID {var_verify(id_name_copy, actual_scope); $$ = new_node(VAR_USE, lookup_var(sym_tb, id_name_copy, actual_scope));} 
+| ID LBRACK NUM RBRACK { $$ = new_node(VAR_USE, lookup_var(sym_tb, id_name_copy, actual_scope));}
+| ID { $$ = new_node(VAR_USE, lookup_var(sym_tb, id_name_copy, actual_scope));} LBRACK ID {var_verify(id_name_copy, actual_scope);} RBRACK
 ;
 
 if_stmt: 
-  IF LPAREN bool_expr RPAREN block 
-| IF LPAREN bool_expr RPAREN block ELSE block
+  IF LPAREN bool_expr RPAREN block              { $$ = new_subtree(IF_NODE, 2, $3, $5); }
+| IF LPAREN bool_expr RPAREN block ELSE block   { $$ = new_subtree(IF_NODE, 3, $3, $5, $7); }
 ;
 
 block: 
-  LBRACE opt_stmt_list RBRACE
+  LBRACE opt_stmt_list RBRACE { $$ = new_subtree(BLOCK_NODE, 1, $2); }
 ;
 
 while_stmt: 
-  WHILE LPAREN bool_expr RPAREN block
+  WHILE LPAREN bool_expr RPAREN block { $$ = new_subtree(WHILE_NODE, 2, $3, $5); }
 ;
 
 return_stmt: 
   RETURN SEMI 
-| RETURN arith_expr SEMI
+| RETURN arith_expr SEMI  { $$ = new_subtree(RETURN_NODE, 1, $2); }
 ;
 
 func_call: 
-  output_call 
-| write_call 
-| user_func_call
+  output_call      { $$ = $1; }
+| write_call       { $$ = $1; }
+| user_func_call   { $$ = $1; }
 ;
 
 input_call: 
-  INPUT LPAREN RPAREN
+  INPUT LPAREN RPAREN { $$ = new_node(INPUT_CALL_NODE, 0); }
 ;
 
 output_call: 
-  OUTPUT LPAREN arith_expr RPAREN
+  OUTPUT LPAREN arith_expr RPAREN { $$ = new_subtree(OUTPUT_CALL_NODE, 1, $3); }
 ;
 
 write_call: 
-  WRITE LPAREN STRING RPAREN
+  WRITE LPAREN STRING RPAREN { $3 = new_node(STRING_NODE, 0); $$ = new_subtree(WRITE_NODE, 1, $3); }
 ;
 
 user_func_call: 
-  ID {func_verify(id_name_copy);} LPAREN opt_arg_list RPAREN {arity_verify(func_tb, f_idx_in_table, actual_arity);}
+  ID {func_verify(id_name_copy); $1 = new_node(FCALL_NODE, lookup_func(func_tb, id_name_copy));} LPAREN opt_arg_list RPAREN { $$ = add_child($1, $4); arity_verify(func_tb, f_idx_in_table, actual_arity);}
 ; //funct_verify receive id_name_copy because the params aren't IDs, therefore, won't override id_name_copy
 
 opt_arg_list: 
-  %empty 
-| arg_list
+  %empty    { $$ = new_node(ARG_LIST_NODE, 0);}
+| arg_list  { $$ = $1; }
 ;
 
 arg_list: 
-  arg_list COMMA arith_expr {actual_arity++;}
-| arith_expr {actual_arity++;}
+  arg_list COMMA arith_expr {actual_arity++; add_child($1, $3); $$ = new_subtree(ARG_LIST_NODE, 1, $1);}
+| arith_expr {actual_arity++; $$ = add_child(new_node(ARG_LIST_NODE, 0), $1);}
 ;
 
 bool_expr: 
-  arith_expr LT arith_expr 
-| arith_expr LE arith_expr 
-| arith_expr GT arith_expr
-| arith_expr GE arith_expr 
-| arith_expr EQ arith_expr 
-| arith_expr NEQ arith_expr
+  arith_expr LT arith_expr    { $$ = new_subtree(LT_NODE, 2, $1, $3); }
+| arith_expr LE arith_expr    { $$ = new_subtree(LE_NODE, 2, $1, $3); }
+| arith_expr GT arith_expr    { $$ = new_subtree(GT_NODE, 2, $1, $3); }
+| arith_expr GE arith_expr    { $$ = new_subtree(GE_NODE, 2, $1, $3); }
+| arith_expr EQ arith_expr    { $$ = new_subtree(EQ_NODE, 2, $1, $3); }
+| arith_expr NEQ arith_expr   { $$ = new_subtree(NEQ_NODE, 2, $1, $3); }
 ;
 
 arith_expr: 
-  arith_expr PLUS arith_expr 
-| arith_expr MINUS arith_expr 
-| arith_expr TIMES arith_expr
-| arith_expr OVER arith_expr 
-| LPAREN arith_expr RPAREN 
-| lval 
-| input_call
-| user_func_call 
-| NUM
+  arith_expr PLUS arith_expr    { $$ = new_subtree(PLUS_NODE, 2, $1, $3); }
+| arith_expr MINUS arith_expr   { $$ = new_subtree(MINUS_NODE, 2, $1, $3); }
+| arith_expr TIMES arith_expr   { $$ = new_subtree(TIMES_NODE, 2, $1, $3); }
+| arith_expr OVER arith_expr    { $$ = new_subtree(OVER_NODE, 2, $1, $3); }
+| LPAREN arith_expr RPAREN      { $$ = $2; }
+| lval                          { $$ = $1; }
+| input_call                    { $$ = $1; }
+| user_func_call                { $$ = $1; }
+| NUM                           { $$ = new_node(NUM_NODE, atoi(yytext)); }
 ;
 %%
 
