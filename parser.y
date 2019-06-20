@@ -10,8 +10,8 @@
   #include <stdio.h>
   #include <stdlib.h>
   #include <string.h>
-  #include "parser.h"
   #include "ast.h"
+  #include "parser.h"
   #include "tables.h"
   extern int yylineno; //sera utilizado na funcao yyerror
   extern char *yytext;
@@ -36,7 +36,7 @@
   SymTable *sym_tb;
   SymFuncTable *func_tb;
 
-  AST* ast;
+  AST *ast;
 %}
 
 %define api.value.type {AST*} //type of variable yylval
@@ -55,7 +55,7 @@
 %left TIMES OVER
 
 %%
-program: func_decl_list { ast = $1 };
+program: func_decl_list { ast = $1; }
 
 func_decl_list: 
   func_decl_list func_decl {actual_scope++; add_child($1, $2); $$ = $1; } 
@@ -67,20 +67,20 @@ func_decl:
 ;
 
 func_header: 
-  ret_type ID {strcpy(func_name, yytext);} LPAREN params RPAREN {func_new(func_name, actual_arity); $2 = new_node(FUNC_NAME_NODE, lookup_func(func_tb, func_name)); $$ = new_subtree(FUNC_HEADER_NODE, 2, $2, $5);}
+  ret_type ID {strcpy(func_name, yytext); } LPAREN params RPAREN {$5 = new_subtree(PARAM_LIST_NODE,0); func_new(func_name, actual_arity); $2 = new_node(FUNC_NAME_NODE, lookup_func(func_tb, func_name)); $$ = new_subtree(FUNC_HEADER_NODE, 2, $2, $5);}
 ; //func_name receive the name of the function because the params are IDs and will override the id_name_copy
 
 func_body: 
-  LBRACE opt_var_decl opt_stmt_list RBRACE {$$ = new_subtree(FUNC_BODY_NODE, 2, $2, $3);}
+  LBRACE opt_var_decl opt_stmt_list RBRACE { $$ = new_subtree(FUNC_BODY_NODE, 2, $2, $3); }
 ;
 
 opt_var_decl: 
-  %empty { $$ = new_node(VAR_DECL_NODE, 0);}
+  %empty { $$ = new_node(VAR_DECL_NODE, 0); }
 | var_decl_list { $$ = $1; }
 ;
 
 opt_stmt_list: 
-  %empty //{ $$ = new_node(EMPTY, 0);}
+  %empty
 | stmt_list { $$ = $1; }
 ;
 
@@ -95,23 +95,23 @@ params:
 ;
 
 param_list: 
-  param_list COMMA param { add_child($1, $3); $$ = new_subtree(PARAM_LIST_NODE, 1, $2); }
-| param { $$ = $1; }
+  param_list COMMA param
+| param
 ;
 
 param: 
-  INT ID {actual_arity++; var_new(id_name_copy, 0, actual_scope); $2 = new_node(VAR_DECL_NODE, lookup_var(sym_tb, id_name_copy, actual_scope)); $$ = $2;}
-| INT ID {actual_arity++; var_new(id_name_copy, -1, actual_scope); $2 = new_node(VAR_DECL_NODE, lookup_var(sym_tb, id_name_copy, actual_scope)); $$ = $2;} LBRACK RBRACK
+  INT ID {actual_arity++; var_new(id_name_copy, 0, actual_scope); }
+| INT ID {actual_arity++; var_new(id_name_copy, -1, actual_scope); } LBRACK RBRACK
 ;
 
 var_decl_list: 
-  var_decl_list var_decl { add_child($1, $2); $$ = new_subtree(VAR_LIST, 1, $1); }
-| var_decl { $$ = $1; }
+  var_decl_list var_decl { add_child($1, $2); $$ = $1; }
+| var_decl { $$ = new_subtree(VAR_LIST_NODE, 1, $1); }
 ;
 
 var_decl: 
   INT ID {var_new(id_name_copy, 0, actual_scope); $2 = new_node(VAR_DECL_NODE, lookup_var(sym_tb, id_name_copy, actual_scope)); $$ = $2;} SEMI 
-| INT ID LBRACK NUM {var_new(id_name_copy, atoi(yytext), actual_scope);} RBRACK SEMI
+| INT ID LBRACK NUM {var_new(id_name_copy, atoi(yytext), actual_scope); $2 = new_node(VAR_DECL_NODE, lookup_var(sym_tb, id_name_copy, actual_scope)); $$ = $2;} RBRACK SEMI
 ;
 
 stmt_list: 
@@ -134,7 +134,7 @@ assign_stmt:
 lval: 
   ID {var_verify(id_name_copy, actual_scope); $$ = new_node(VAR_USE, lookup_var(sym_tb, id_name_copy, actual_scope));} 
 | ID LBRACK NUM RBRACK { $$ = new_node(VAR_USE, lookup_var(sym_tb, id_name_copy, actual_scope));}
-| ID { $$ = new_node(VAR_USE, lookup_var(sym_tb, id_name_copy, actual_scope));} LBRACK ID {var_verify(id_name_copy, actual_scope);} RBRACK
+| ID LBRACK { $$ = new_node(VAR_USE, lookup_var(sym_tb, id_name_copy, actual_scope));} ID {var_verify(id_name_copy, actual_scope);} RBRACK
 ;
 
 if_stmt: 
@@ -174,7 +174,7 @@ write_call:
 ;
 
 user_func_call: 
-  ID {func_verify(id_name_copy); $1 = new_node(FCALL_NODE, lookup_func(func_tb, id_name_copy));} LPAREN opt_arg_list RPAREN { $$ = add_child($1, $4); arity_verify(func_tb, f_idx_in_table, actual_arity);}
+  ID {func_verify(id_name_copy); $1 = new_node(FCALL_NODE, lookup_func(func_tb, id_name_copy));} LPAREN opt_arg_list RPAREN { add_child($1, $4); $$ = $1; arity_verify(func_tb, f_idx_in_table, actual_arity);}
 ; //funct_verify receive id_name_copy because the params aren't IDs, therefore, won't override id_name_copy
 
 opt_arg_list: 
@@ -184,7 +184,7 @@ opt_arg_list:
 
 arg_list: 
   arg_list COMMA arith_expr {actual_arity++; add_child($1, $3); $$ = new_subtree(ARG_LIST_NODE, 1, $1);}
-| arith_expr {actual_arity++; $$ = add_child(new_node(ARG_LIST_NODE, 0), $1);}
+| arith_expr {actual_arity++; $$ = new_subtree(ARG_LIST_NODE, 1, $1);}
 ;
 
 bool_expr: 
@@ -293,6 +293,7 @@ int main(void){
     free_lit_table(lit_tb);
     free_sym_table(sym_tb);
     free_sym_func_table(func_tb);
+    free_tree(ast);
   }
   return 0;
 }

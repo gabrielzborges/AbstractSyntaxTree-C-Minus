@@ -4,6 +4,7 @@
 %option noinput
 %option yylineno
 %{
+#include "ast.h"
 #include "parser.h"
 #include "tables.h"
 #include <string.h>
